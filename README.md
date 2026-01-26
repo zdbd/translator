@@ -1,103 +1,105 @@
 # Translator
 
-基于本地 Ollama 模型的 macOS 原生多语言翻译应用，采用 SwiftUI 构建。提供极简、私密且高效的翻译体验。
+[中文版 (Chinese Version)](./README_CN.md)
 
-## 🌟 功能特点
+A minimalist, private, and efficient native macOS translation application built with SwiftUI, powered by local Ollama models.
 
-- **私密可靠**：完全基于本地 Ollama 模型运行，无需将 data 上传至云端，确保隐私安全。
-- **流式响应**：实时流式输出翻译结果，响应迅速且体验丝滑。
-- **多模型支持**：支持所有 Ollama 可用的模型（如 llama3, mistral, gemma 等），可自由切换。
-- **提示词定制**：支持自定义翻译提示词（Prompt），精准控制翻译风格和规范。
-- **原生体验**：深度集成 macOS 风格，支持快捷键调整、毛玻璃效果及现代化的图标设计（方案 A：语言之桥）。
-- **线程安全**：基于 Swift Actor 模型重构，确保高并发环境下的业务逻辑稳定性。
+## 🌟 Key Features
 
-## 🛠 前置要求
+- **Private & Secure**: Runs entirely on local Ollama models. No data is sent to the cloud, ensuring total privacy.
+- **Streaming Response**: Real-time streaming output for a smooth and responsive translation experience.
+- **Multi-Model Support**: Supports all available Ollama models (e.g., llama3, mistral, gemma, etc.) with easy switching.
+- **Customizable Prompts**: Define your own translation prompts to control style, tone, and terminology.
+- **Native Experience**: Deep integration with macOS aesthetics, featuring glassmorphism effects and a modern icon design (Bridge of Languages).
+- **Thread-Safe**: Rebuilt using the Swift Actor model to ensure stability and performance.
 
-1. **macOS 14.0 (Sonoma) 或更高版本**
-2. **Xcode 15.0 或更高版本**
-3. **Ollama**：用于运行本地大语言模型。
+## 🛠 Prerequisites
 
-### 安装与配置 Ollama
+1. **macOS 14.0 (Sonoma) or higher**
+2. **Xcode 15.0 or higher**
+3. **Ollama**: Required to run local large language models.
+
+### Installation & Setup for Ollama
 
 ```bash
-# 使用 Homebrew 安装
+# Install via Homebrew
 brew install ollama
 
-# 下载模型（推荐 Llama 3 或类似模型）
+# Pull a model (Llama 3 is recommended)
 ollama pull llama3
 ```
 
-## 🚀 构建和运行
+## 🚀 Build & Run
 
-### 使用 Xcode (推荐)
+### Using Xcode (Recommended)
 
 ```bash
 open Translator.xcodeproj
-# 点击运行按钮或按 Cmd + R
+# Click the Run button or press Cmd + R
 ```
 
-### 使用命令行
+### Using Command Line
 
 ```bash
-# 如果是基于 XcodeGen 项目，先生成工程
+# Generate project if using XcodeGen
 xcodegen generate
 
-# 构建并运行
+# Build and run
 xcodebuild -project Translator.xcodeproj -scheme Translator -configuration Debug build
 ```
 
-## 📖 使用指南
+## 📖 Usage Guide
 
-### 1. 模型与连接配置
+### 1. Model & Connection Config
 
-- 启动应用后进入「设置」(`Cmd + ,`)。
-- 输入您的 Ollama 服务地址（默认为 `http://localhost:11434`）。
-- 点击刷新列表并选择您已下载的模型。
+- Open the app and go to **Settings** (`Cmd + ,`).
+- Enter your Ollama server URL (default is `http://localhost:11434`).
+- Click refresh and select your downloaded model from the list.
 
-### 2. 翻译参数
+### 2. Translation Parameters
 
-- 在设置中可以配置全局翻译 Prompt，例如指定翻译为学术风格或口语风格。
+- Configure global translation prompts in Settings (e.g., specify academic or colloquial style).
 
-### 3. 主界面操作
+### 3. Main Interface
 
-- **源文本**：左侧输入原文。
-- **语言切换**：点击中间的 ⇄ 按钮可快速互换语言。
-- **流式输出**：点击翻译后，右侧会实时呈现翻译内容。
+- **Source Text**: Enter text in the left panel.
+- **Language Switch**: Click the ⇄ button to swap source and target languages.
+- **Streaming Output**: Witness the translation render in real-time on the right.
 
-## 📂 项目结构
+## 📂 Project Structure
 
 ```text
 Translator/
 ├── Sources/
 │   └── Translator/
 │       ├── App/
-│       │   └── TranslatorApp.swift       # 应用入口
+│       │   └── TranslatorApp.swift       # Application Entry
 │       ├── Models/
-│       │   ├── AppConfiguration.swift    # 状态持久化与应用配置
-│       │   ├── Language.swift            # 语言定义与映射
-│       │   └── OllamaModels.swift        # API 数据交互结构体
+│       │   ├── AppConfiguration.swift    # Persistence & Config
+│       │   ├── Language.swift            # Language Definitions
+│       │   └── OllamaModels.swift        # API Data Structures
 │       ├── Services/
-│       │   └── TranslationService.swift  # Actor 驱动的 Ollama 客户端
+│       │   └── TranslationService.swift  # Actor-driven Ollama Client
 │       ├── ViewModels/
-│       │   └── TranslationViewModel.swift # 业务逻辑与状态管理
+│       │   └── TranslationViewModel.swift # Logic & State Management
 │       ├── Views/
-│       │   ├── ContentView.swift         # 主翻译工作区
-│       │   └── SettingsView.swift        # 深度定制的设置面板
+│       │   ├── ContentView.swift         # Main Translation Workspace
+│       │   └── SettingsView.swift        # Detailed Settings Panel
 │       └── Resources/
-│           └── Assets.xcassets/          # 应用标（现代几何风格）及资源
-├── Tests/                                # 单元测试模块
-├── project.yml                           # XcodeGen 描述文件
-└── .gitignore                            # 精细化的 git 过滤规则
+│           └── Assets.xcassets/          # App Icons & Resources
+├── Tests/                                # Unit Tests
+├── project.yml                           # XcodeGen Specification
+└── .gitignore                            # Refined Git Ignore Rules
 ```
 
-## 🏗 技术栈
+## 🏗 Technology Stack
 
-- **框架**: SwiftUI
-- **异步处理**: Swift Concurrency (async/await, Actor, AsyncThrowingStream)
-- **网络层**: URLSession (流式数据抓取)
-- **构建工具**: XcodeGen
-- **本地化**: 支持多语言扩展
+- **Framework**: SwiftUI
+- **Concurrency**: Swift Concurrency (async/await, Actor, AsyncThrowingStream)
+- **Networking**: URLSession (Streaming data fetch)
+- **Build Tool**: XcodeGen
+- **Localization**: Ready for multi-language expansion
 
-## ⚖️ 许可证
+## ⚖️ License
 
 [MIT License](LICENSE)
