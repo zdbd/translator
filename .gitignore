@@ -1,0 +1,65 @@
+# Xcode
+#
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace/xcuserdata/
+*.xcuserdatad
+!default.xcuserdatad
+xcuserdata/
+MostRecentCompletionIndex
+*.viewstate
+*.xccheckout
+*.xcscheme
+!default.xcscheme
+DerivedData/
+*.moved-aside
+*.pch
+*.framework
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+#
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+Package.pins
+
+# CocoaPods
+#
+Pods/
+Podfile.lock
+*.xcworkspace
+
+# Carthage
+#
+Carthage/Build/
+
+# AccuRev
+#
+.accurev.session
+
+# Fastlane
+#
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# macOS
+#
+.DS_Store
+*.swp
+*.lock
+profile
+
+# Misc
+#
+.env
+.idea/
+*.orig
+CLAUDE.md

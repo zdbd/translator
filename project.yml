@@ -1,0 +1,35 @@
+name: Translator
+options:
+  bundleIdPrefix: com.translator
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: zh-Hans
+
+targets:
+  Translator:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.translator.app
+      SWIFT_VERSION: "5.9"
+      SWIFT_STRICT_CONCURRENCY: complete
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_NSHumanReadableCopyright: ""
+      INFOPLIST_KEY_NSHasBackgroundModes: NO
+      CODE_SIGN_STYLE: Automatic
+    scheme:
+      testTargets:
+        - TranslatorTests
+
+  TranslatorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Translator
