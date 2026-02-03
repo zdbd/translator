@@ -1,17 +1,29 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Bindable private var configuration = AppConfiguration.shared
+    @ObservedObject private var configuration = AppConfiguration.shared
 
     @State private var availableModels: [String] = []
     @State private var isLoadingModels = false
     @State private var loadError: String?
     @State private var customPrompt = ""
     @State private var ollamaURL = ""
+    @State private var urlError: String?
     @State private var connectionStatus: ConnectionStatus = .unknown
 
     enum ConnectionStatus {
         case unknown, checking, connected, failed(String)
+    }
+
+    enum URLValidationError: LocalizedError {
+        case invalidFormat
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidFormat:
+                return "URL 格式无效，请输入例如 http://localhost:11434"
+            }
+        }
     }
 
     var body: some View {
@@ -47,15 +59,23 @@ struct SettingsView: View {
                         TextField(TranslationService.defaultURL, text: $ollamaURL)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit {
-                                saveOllamaURL()
-                                testConnection()
+                                if saveOllamaURL() {
+                                    testConnection()
+                                }
                             }
 
                         Button("测试连接") {
-                            saveOllamaURL()
-                            testConnection()
+                            if saveOllamaURL() {
+                                testConnection()
+                            }
                         }
                         .disabled(isConnectionChecking)
+                    }
+
+                    if let urlError {
+                        Text(urlError)
+                            .font(.caption)
+                            .foregroundColor(.red)
                     }
                 }
                 .padding(.vertical, 4)
@@ -168,6 +188,22 @@ struct SettingsView: View {
             Text("提示词模板")
                 .font(.headline)
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("预设模板:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+
+                HStack(spacing: 8) {
+                    ForEach(AppConfiguration.promptTemplates) { template in
+                        Button(template.name) {
+                            customPrompt = template.prompt
+                            configuration.selectedPromptTemplate = template.name
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("可用变量:")
                     .font(.caption)
@@ -270,12 +306,22 @@ struct SettingsView: View {
     private func loadSettings() {
         ollamaURL = configuration.ollamaURL
         customPrompt = configuration.customPrompt
+        urlError = nil
     }
 
-    private func saveOllamaURL() {
+    private func saveOllamaURL() -> Bool {
         let trimmedURL = ollamaURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        ollamaURL = trimmedURL.isEmpty ? TranslationService.defaultURL : trimmedURL
-        configuration.ollamaURL = ollamaURL
+        let normalized = normalizeOllamaURL(trimmedURL)
+        switch normalized {
+        case .success(let value):
+            ollamaURL = value
+            configuration.ollamaURL = value
+            urlError = nil
+            return true
+        case .failure(let error):
+            urlError = error.errorDescription
+            return false
+        }
     }
 
     private func testConnection() {
@@ -296,12 +342,16 @@ struct SettingsView: View {
     private func loadModels() {
         isLoadingModels = true
         loadError = nil
-        saveOllamaURL()
+        guard saveOllamaURL() else {
+            isLoadingModels = false
+            connectionStatus = .failed("URL 无效")
+            return
+        }
 
         Task {
             do {
                 let models = try await TranslationService.shared.getAvailableModels()
-                availableModels = models
+                availableModels = models.sorted()
 
                 if models.isEmpty {
                     loadError = "未找到已安装的模型"
@@ -333,6 +383,28 @@ struct SettingsView: View {
 
     private func savePrompt() {
         configuration.customPrompt = customPrompt
+    }
+
+    private func normalizeOllamaURL(_ input: String) -> Result<String, URLValidationError> {
+        let fallback = TranslationService.defaultURL
+        let rawValue = input.isEmpty ? fallback : input
+
+        let withScheme: String
+        if rawValue.contains("://") {
+            withScheme = rawValue
+        } else {
+            withScheme = "http://\(rawValue)"
+        }
+
+        guard let components = URLComponents(string: withScheme),
+              let scheme = components.scheme,
+              let host = components.host,
+              !scheme.isEmpty,
+              !host.isEmpty else {
+            return .failure(.invalidFormat)
+        }
+
+        return .success(components.string ?? withScheme)
     }
 }
 

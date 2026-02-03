@@ -2,17 +2,25 @@ import SwiftUI
 
 /// 翻译功能的 ViewModel，负责管理翻译状态和业务逻辑
 @MainActor
-@Observable
-final class TranslationViewModel {
+final class TranslationViewModel: ObservableObject {
     // MARK: - Published State
 
-    var sourceText = ""
-    var translatedText = ""
-    var sourceLanguage: Language = .english
-    var targetLanguage: Language = .chinese
-    var isTranslating = false
-    var errorMessage: String?
-    var showError = false
+    @Published var sourceText = ""
+    @Published var translatedText = ""
+    @Published var sourceLanguage: Language = .english {
+        didSet {
+            configuration.sourceLanguage = sourceLanguage
+        }
+    }
+    @Published var targetLanguage: Language = .chinese {
+        didSet {
+            configuration.targetLanguage = targetLanguage
+        }
+    }
+    @Published var isTranslating = false
+    @Published var errorMessage: String?
+    @Published var showError = false
+    @Published var history: [TranslationRecord] = []
 
     // MARK: - Private
 
@@ -47,6 +55,8 @@ final class TranslationViewModel {
 
     init(configuration: AppConfiguration = .shared) {
         self.configuration = configuration
+        self.sourceLanguage = configuration.sourceLanguage
+        self.targetLanguage = configuration.targetLanguage
     }
 
     // MARK: - Actions
@@ -60,6 +70,48 @@ final class TranslationViewModel {
         errorMessage = nil
 
         translationTask = Task {
+            var pendingText = ""
+            var lastFlushTime = CFAbsoluteTimeGetCurrent()
+            let minFlushInterval: CFTimeInterval = 0.05
+            var wasCancelled = false
+            var didError = false
+            let sourceSnapshot = sourceText
+            let sourceLanguageSnapshot = sourceLanguage
+            let targetLanguageSnapshot = targetLanguage
+            let modelSnapshot = configuration.selectedModel
+
+            func flushPending(force: Bool = false) async {
+                guard !pendingText.isEmpty else { return }
+                let elapsed = CFAbsoluteTimeGetCurrent() - lastFlushTime
+                if force || elapsed >= minFlushInterval {
+                    let textToAppend = pendingText
+                    pendingText = ""
+                    lastFlushTime = CFAbsoluteTimeGetCurrent()
+                    await MainActor.run {
+                        translatedText += textToAppend
+                    }
+                }
+            }
+
+            defer {
+                Task { @MainActor in
+                    if wasCancelled && translatedText.isEmpty {
+                        translatedText = "翻译已取消"
+                    }
+                    if !didError && !wasCancelled && !translatedText.isEmpty {
+                        addHistory(
+                            sourceText: sourceSnapshot,
+                            translatedText: translatedText,
+                            sourceLanguage: sourceLanguageSnapshot,
+                            targetLanguage: targetLanguageSnapshot,
+                            model: modelSnapshot
+                        )
+                    }
+                    isTranslating = false
+                    translationTask = nil
+                }
+            }
+
             do {
                 let prompt = configuration.buildPrompt(
                     source: sourceLanguage.displayName,
@@ -72,25 +124,29 @@ final class TranslationViewModel {
                     prompt: prompt
                 ) {
                     if Task.isCancelled { break }
-                    translatedText += chunk
+                    pendingText += chunk
+                    await flushPending()
                 }
+                await flushPending(force: true)
             } catch is CancellationError {
-                if translatedText.isEmpty {
-                    translatedText = "翻译已取消"
-                }
+                wasCancelled = true
+                await flushPending(force: true)
             } catch let error as TranslationError {
-                errorMessage = error.errorDescription
-                if let suggestion = error.recoverySuggestion {
-                    errorMessage! += "\n\n建议: \(suggestion)"
+                didError = true
+                await MainActor.run {
+                    errorMessage = error.errorDescription
+                    if let suggestion = error.recoverySuggestion {
+                        errorMessage! += "\n\n建议: \(suggestion)"
+                    }
+                    showError = true
                 }
-                showError = true
             } catch {
-                errorMessage = error.localizedDescription
-                showError = true
+                didError = true
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
             }
-
-            isTranslating = false
-            translationTask = nil
         }
     }
 
@@ -130,5 +186,83 @@ final class TranslationViewModel {
     /// 重置错误弹窗状态
     func dismissError() {
         showError = false
+    }
+
+    func applyPromptTemplate(_ template: PromptTemplate) {
+        configuration.customPrompt = template.prompt
+        configuration.selectedPromptTemplate = template.name
+    }
+
+    // MARK: - History
+
+    func addHistory(
+        sourceText: String,
+        translatedText: String,
+        sourceLanguage: Language,
+        targetLanguage: Language,
+        model: String
+    ) {
+        let record = TranslationRecord(
+            sourceText: sourceText,
+            translatedText: translatedText,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            model: model,
+            date: Date()
+        )
+
+        history.insert(record, at: 0)
+        if history.count > 20 {
+            history.removeLast(history.count - 20)
+        }
+    }
+
+    func loadHistory(_ record: TranslationRecord) {
+        sourceText = record.sourceText
+        translatedText = record.translatedText
+        sourceLanguage = record.sourceLanguage
+        targetLanguage = record.targetLanguage
+    }
+}
+
+// MARK: - History Model
+
+struct TranslationRecord: Identifiable, Hashable {
+    let id: UUID
+    let sourceText: String
+    let translatedText: String
+    let sourceLanguage: Language
+    let targetLanguage: Language
+    let model: String
+    let date: Date
+
+    init(
+        id: UUID = UUID(),
+        sourceText: String,
+        translatedText: String,
+        sourceLanguage: Language,
+        targetLanguage: Language,
+        model: String,
+        date: Date
+    ) {
+        self.id = id
+        self.sourceText = sourceText
+        self.translatedText = translatedText
+        self.sourceLanguage = sourceLanguage
+        self.targetLanguage = targetLanguage
+        self.model = model
+        self.date = date
+    }
+}
+
+struct PromptTemplate: Identifiable, Hashable {
+    let id: UUID
+    let name: String
+    let prompt: String
+
+    init(id: UUID = UUID(), name: String, prompt: String) {
+        self.id = id
+        self.name = name
+        self.prompt = prompt
     }
 }

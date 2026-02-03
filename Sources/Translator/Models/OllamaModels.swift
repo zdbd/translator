@@ -25,10 +25,10 @@ struct ModelOptions: Codable {
 }
 
 struct TranslationResponse: Codable {
-    let model: String
-    let createdAt: String
-    let response: String
-    let done: Bool
+    let model: String?
+    let createdAt: String?
+    let response: String?
+    let done: Bool?
 
     enum CodingKeys: String, CodingKey {
         case model
@@ -36,6 +36,10 @@ struct TranslationResponse: Codable {
         case response
         case done
     }
+}
+
+struct OllamaErrorResponse: Codable {
+    let error: String
 }
 
 struct ModelsResponse: Codable {

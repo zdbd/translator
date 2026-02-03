@@ -9,8 +9,10 @@ actor TranslationService {
 
     /// 共享的 URLSession 实例
     private let session: URLSession
+    private let userDefaults: UserDefaults
 
-    private init() {
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 120
         config.timeoutIntervalForResource = 300
@@ -18,8 +20,8 @@ actor TranslationService {
     }
 
     /// 获取 Ollama 服务基础 URL
-    private nonisolated func getBaseURL() -> URL {
-        let urlString = UserDefaults.standard.string(forKey: "ollamaURL") ?? Self.defaultURL
+    private func getBaseURL() -> URL {
+        let urlString = userDefaults.string(forKey: "ollamaURL") ?? Self.defaultURL
         guard let url = URL(string: urlString), !urlString.isEmpty else {
             return URL(string: Self.defaultURL)!
         }
@@ -78,11 +80,22 @@ actor TranslationService {
                         // 检查任务是否被取消
                         try Task.checkCancellation()
 
-                        if let data = line.data(using: .utf8),
-                           let translationResponse = try? JSONDecoder().decode(TranslationResponse.self, from: data) {
-                            continuation.yield(translationResponse.response)
+                        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedLine.isEmpty { continue }
 
-                            if translationResponse.done {
+                        guard let data = trimmedLine.data(using: .utf8) else { continue }
+
+                        if let errorResponse = try? JSONDecoder().decode(OllamaErrorResponse.self, from: data) {
+                            continuation.finish(throwing: TranslationError.ollamaError(errorResponse.error))
+                            return
+                        }
+
+                        if let translationResponse = try? JSONDecoder().decode(TranslationResponse.self, from: data) {
+                            if let responseText = translationResponse.response, !responseText.isEmpty {
+                                continuation.yield(responseText)
+                            }
+
+                            if translationResponse.done == true {
                                 continuation.finish()
                                 return
                             }
@@ -142,6 +155,7 @@ enum TranslationError: LocalizedError {
     case connectionTimeout
     case networkUnavailable
     case modelNotFound
+    case ollamaError(String)
 
     var errorDescription: String? {
         switch self {
@@ -159,6 +173,8 @@ enum TranslationError: LocalizedError {
             return "网络不可用，请检查网络连接"
         case .modelNotFound:
             return "未找到指定的模型，请先下载模型"
+        case .ollamaError(let message):
+            return "Ollama 返回错误: \(message)"
         }
     }
 
@@ -170,6 +186,8 @@ enum TranslationError: LocalizedError {
             return "运行 'ollama pull <模型名>' 下载模型"
         case .connectionTimeout:
             return "检查 Ollama 服务地址设置"
+        case .ollamaError:
+            return "请检查 Ollama 日志并重试"
         default:
             return nil
         }

@@ -2,6 +2,12 @@ import XCTest
 @testable import Translator
 
 final class TranslatorTests: XCTestCase {
+    @MainActor
+    private func makeTestConfig() -> AppConfiguration {
+        let userDefaults = UserDefaults(suiteName: "TranslatorTests")!
+        userDefaults.removePersistentDomain(forName: "TranslatorTests")
+        return AppConfiguration(userDefaults: userDefaults)
+    }
 
     // MARK: - Language Enum Tests
 
@@ -32,7 +38,7 @@ final class TranslatorTests: XCTestCase {
 
     @MainActor
     func testPromptBuilding() async {
-        let config = AppConfiguration.shared
+        let config = makeTestConfig()
         let prompt = config.buildPrompt(source: "英语", target: "中文", text: "Hello")
 
         XCTAssertTrue(prompt.contains("英语"))
@@ -40,6 +46,7 @@ final class TranslatorTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Hello"))
     }
 
+    @MainActor
     func testDefaultPromptContainsPlaceholders() {
         let prompt = AppConfiguration.defaultPrompt
         XCTAssertTrue(prompt.contains("{source_language}"))
@@ -51,7 +58,7 @@ final class TranslatorTests: XCTestCase {
 
     @MainActor
     func testViewModelInitialState() {
-        let vm = TranslationViewModel()
+        let vm = TranslationViewModel(configuration: makeTestConfig())
 
         XCTAssertEqual(vm.sourceText, "")
         XCTAssertEqual(vm.translatedText, "")
@@ -62,7 +69,7 @@ final class TranslatorTests: XCTestCase {
 
     @MainActor
     func testViewModelCanTranslate() {
-        let vm = TranslationViewModel()
+        let vm = TranslationViewModel(configuration: makeTestConfig())
 
         // Empty text - cannot translate
         XCTAssertFalse(vm.canTranslate)
@@ -78,7 +85,7 @@ final class TranslatorTests: XCTestCase {
 
     @MainActor
     func testViewModelSwapLanguages() {
-        let vm = TranslationViewModel()
+        let vm = TranslationViewModel(configuration: makeTestConfig())
         vm.sourceLanguage = .english
         vm.targetLanguage = .chinese
         vm.translatedText = "你好"
@@ -93,7 +100,7 @@ final class TranslatorTests: XCTestCase {
 
     @MainActor
     func testViewModelClearAll() {
-        let vm = TranslationViewModel()
+        let vm = TranslationViewModel(configuration: makeTestConfig())
         vm.sourceText = "Hello"
         vm.translatedText = "你好"
         vm.errorMessage = "Some error"
@@ -139,7 +146,19 @@ final class TranslatorTests: XCTestCase {
 
         XCTAssertEqual(response.model, "llama3")
         XCTAssertEqual(response.response, "你好")
-        XCTAssertFalse(response.done)
+        XCTAssertEqual(response.done, false)
+    }
+
+    func testOllamaErrorResponseDecoding() throws {
+        let json = """
+        { "error": "model not found" }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let response = try decoder.decode(OllamaErrorResponse.self, from: data)
+
+        XCTAssertEqual(response.error, "model not found")
     }
 
     // MARK: - Error Handling Tests
@@ -152,16 +171,40 @@ final class TranslatorTests: XCTestCase {
         XCTAssertNotNil(TranslationError.invalidResponse.errorDescription)
         XCTAssertNotNil(TranslationError.httpError(500).errorDescription)
         XCTAssertNotNil(TranslationError.serverError(503).errorDescription)
+        XCTAssertNotNil(TranslationError.ollamaError("bad request").errorDescription)
     }
 
     func testTranslationErrorRecoverySuggestions() {
         XCTAssertNotNil(TranslationError.connectionRefused.recoverySuggestion)
         XCTAssertNotNil(TranslationError.modelNotFound.recoverySuggestion)
         XCTAssertNotNil(TranslationError.connectionTimeout.recoverySuggestion)
+        XCTAssertNotNil(TranslationError.ollamaError("bad request").recoverySuggestion)
 
         // These errors don't have recovery suggestions
         XCTAssertNil(TranslationError.invalidResponse.recoverySuggestion)
         XCTAssertNil(TranslationError.httpError(400).recoverySuggestion)
+    }
+
+    func testTranslationErrorFromURLError() {
+        switch TranslationError.from(urlError: URLError(.cannotConnectToHost)) {
+        case .connectionRefused: break
+        default: XCTFail("Expected connectionRefused")
+        }
+
+        switch TranslationError.from(urlError: URLError(.cannotFindHost)) {
+        case .connectionRefused: break
+        default: XCTFail("Expected connectionRefused")
+        }
+
+        switch TranslationError.from(urlError: URLError(.timedOut)) {
+        case .connectionTimeout: break
+        default: XCTFail("Expected connectionTimeout")
+        }
+
+        switch TranslationError.from(urlError: URLError(.notConnectedToInternet)) {
+        case .networkUnavailable: break
+        default: XCTFail("Expected networkUnavailable")
+        }
     }
 
     func testDefaultOllamaURL() {
