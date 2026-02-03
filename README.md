@@ -9,9 +9,12 @@ A minimalist, private, and efficient native macOS translation application built 
 - **Private & Secure**: Runs entirely on local Ollama models. No data is sent to the cloud, ensuring total privacy.
 - **Streaming Response**: Real-time streaming output for a smooth and responsive translation experience.
 - **Multi-Model Support**: Supports all available Ollama models (e.g., llama3, mistral, gemma, etc.) with easy switching.
-- **Customizable Prompts**: Define your own translation prompts to control style, tone, and terminology.
+- **Customizable Prompts**: Define your own translation prompts and switch between presets (Concise/Formal/Literal).
 - **Native Experience**: Deep integration with macOS aesthetics, featuring glassmorphism effects and a modern icon design (Bridge of Languages).
 - **Thread-Safe**: Rebuilt using the Swift Actor model to ensure stability and performance.
+- **History Panel**: Quickly revisit recent translations (last 20).
+- **Adjustable Split View**: Drag to resize input/output panes, with persistence.
+- **Keyboard Shortcuts**: Fast translation workflow with custom shortcuts.
 
 ## 🛠 Prerequisites
 
@@ -65,6 +68,8 @@ xcodebuild -project Translator.xcodeproj -scheme Translator -configuration Debug
 - **Source Text**: Enter text in the left panel.
 - **Language Switch**: Click the ⇄ button to swap source and target languages.
 - **Streaming Output**: Witness the translation render in real-time on the right.
+- **Prompt Presets**: Use the “模板” menu to switch styles (Concise/Formal/Literal).
+- **History**: Toggle “历史” to reload recent translations.
 
 ## 📂 Project Structure
 
@@ -99,6 +104,14 @@ Translator/
 - **Networking**: URLSession (Streaming data fetch)
 - **Build Tool**: XcodeGen
 - **Localization**: Ready for multi-language expansion
+
+## ⌨️ Shortcuts
+
+- `⌘↩` Translate
+- `⌘⇧S` Swap languages
+- `⌘⇧C` Copy translation
+- `⌘L` Focus source editor
+- `⌘K` Clear all
 
 ## ⚖️ License
 
